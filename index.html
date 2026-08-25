@@ -71,7 +71,7 @@
   </div>
 
   <script>
-    // ใส่ Web App URL จาก Google Apps Script ที่นี่
+    // Web App URL ของ Apps Script
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzA5Rp5Vvr0c4jwar_duQztF174Fo7Xuzh6o8JXGpHl9fM8NBSKtfynQWNNiVTB2cigPw/exec";
 
     // อัปเดตเวลานาฬิกา
@@ -123,10 +123,17 @@
           };
 
           try {
+            // ปรับคำสั่ง fetch เพื่อรองรับ Google Apps Script Redirect & CORS
             const response = await fetch(GAS_URL, {
               method: 'POST',
+              mode: 'cors',
+              redirect: 'follow',
+              headers: {
+                'Content-Type': 'text/plain;charset=utf-8'
+              },
               body: JSON.stringify(payload)
             });
+
             const result = await response.json();
 
             if (result.status === "success") {
@@ -135,10 +142,11 @@
               showStatus(text, result.isWithinRadius ? 'success' : 'warning');
               saveLocalLog(actionType, result.timestamp, statusText);
             } else {
-              showStatus('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+              showStatus('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (result.message || ''), 'error');
             }
           } catch (err) {
-            showStatus('ไม่สามารถเชื่อมต่อระบบเซิร์ฟเวอร์ได้', 'error');
+            console.error("Fetch Error:", err);
+            showStatus('ไม่สามารถเชื่อมต่อระบบเซิร์ฟเวอร์ได้ (โปรดตรวจสอบสิทธิ์ Apps Script)', 'error');
           }
         },
         (error) => {
