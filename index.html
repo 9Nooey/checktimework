@@ -15,7 +15,6 @@
 
   <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
     
-    <!-- Top Header & Clock -->
     <div class="bg-slate-900 text-white p-6 text-center relative overflow-hidden">
       <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-blue-600/20 rounded-full blur-2xl"></div>
       <div class="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1">Time Attendance</div>
@@ -23,7 +22,6 @@
       <div id="date" class="text-xs text-slate-400 mt-1 font-light">กำลังโหลด...</div>
     </div>
 
-    <!-- Form Section -->
     <div class="p-6 space-y-4">
       <div>
         <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสพนักงาน</label>
@@ -41,26 +39,26 @@
         </div>
       </div>
 
-      <!-- Action Buttons -->
       <div class="grid grid-cols-2 gap-3 pt-2">
-        <button onclick="recordTime('CHECK_IN')" class="flex flex-col items-center justify-center p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-sm transition active:scale-95 group">
+        <button id="btnIn" onclick="recordTime('CHECK_IN')" class="flex flex-col items-center justify-center p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-sm transition active:scale-95 group">
           <i class="fa-solid fa-arrow-right-to-bracket text-xl mb-1 group-hover:scale-110 transition"></i>
           <span class="font-medium text-sm">เข้างาน (Check-in)</span>
         </button>
 
-        <button onclick="recordTime('CHECK_OUT')" class="flex flex-col items-center justify-center p-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl shadow-sm transition active:scale-95 group">
+        <button id="btnOut" onclick="recordTime('CHECK_OUT')" class="flex flex-col items-center justify-center p-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl shadow-sm transition active:scale-95 group">
           <i class="fa-solid fa-arrow-right-from-bracket text-xl mb-1 group-hover:scale-110 transition"></i>
           <span class="font-medium text-sm">ออกงาน (Check-out)</span>
         </button>
       </div>
 
-      <!-- Status Alert Box -->
-      <div id="statusBox" class="hidden p-3.5 rounded-xl text-xs flex items-start space-x-2 transition">
-        <i id="statusIcon" class="fa-solid mt-0.5"></i>
-        <div id="statusMsg" class="flex-1"></div>
+      <div id="statusBox" class="hidden p-3.5 rounded-xl text-xs space-y-1 transition">
+        <div class="flex items-center space-x-2">
+          <i id="statusIcon" class="fa-solid"></i>
+          <div id="statusMsg" class="font-semibold flex-1"></div>
+        </div>
+        <div id="statusDetail" class="text-[11px] opacity-80 pl-5"></div>
       </div>
 
-      <!-- Recent Log Section -->
       <div class="pt-2 border-t border-slate-100">
         <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">ประวัติการลงเวลาล่าสุดบนเครื่องนี้</div>
         <div id="recentLogs" class="space-y-1.5 text-xs text-slate-600">
@@ -71,10 +69,8 @@
   </div>
 
   <script>
-    // Web App URL ของ Apps Script
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzA5Rp5Vvr0c4jwar_duQztF174Fo7Xuzh6o8JXGpHl9fM8NBSKtfynQWNNiVTB2cigPw/exec";
 
-    // อัปเดตเวลานาฬิกา
     function initClock() {
       const now = new Date();
       document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH');
@@ -85,7 +81,6 @@
     setInterval(initClock, 1000);
     initClock();
 
-    // ดึงข้อมูลที่เคยบันทึกไว้ในเบราว์เซอร์
     window.onload = () => {
       if (localStorage.getItem('empId')) document.getElementById('empId').value = localStorage.getItem('empId');
       if (localStorage.getItem('empName')) document.getElementById('empName').value = localStorage.getItem('empName');
@@ -97,33 +92,35 @@
       const empName = document.getElementById('empName').value.trim();
 
       if (!empId || !empName) {
-        showStatus('กรุณากรอกรหัสพนักงานและชื่อให้ครบถ้วน', 'warning');
+        showStatus('กรุณากรอกรหัสพนักงานและชื่อให้ครบถ้วน', '', 'warning');
         return;
       }
 
-      // จำค่าไว้ใช้งานครั้งถัดไป
       localStorage.setItem('empId', empId);
       localStorage.setItem('empName', empName);
 
       if (!navigator.geolocation) {
-        showStatus('เบราว์เซอร์นี้ไม่รองรับการดึงพิกัด GPS', 'error');
+        showStatus('เบราว์เซอร์นี้ไม่รองรับการดึงพิกัด GPS', '', 'error');
         return;
       }
 
-      showStatus('กำลังระบุพิกัด GPS และบันทึกข้อมูล...', 'loading');
+      showStatus('กำลังระบุพิกัด GPS และบันทึกข้อมูล...', 'โปรดรอสักครู่', 'loading');
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          const uLat = position.coords.latitude;
+          const uLng = position.coords.longitude;
+          const accuracy = Math.round(position.coords.accuracy);
+
           const payload = {
             empId: empId,
             name: empName,
             action: actionType,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            latitude: uLat,
+            longitude: uLng
           };
 
           try {
-            // ปรับคำสั่ง fetch เพื่อรองรับ Google Apps Script Redirect & CORS
             const response = await fetch(GAS_URL, {
               method: 'POST',
               mode: 'cors',
@@ -138,31 +135,36 @@
 
             if (result.status === "success") {
               const statusText = result.isWithinRadius ? 'ในพื้นที่' : 'นอกพื้นที่';
-              const text = `บันทึกสำเร็จ (${statusText}) | ระยะห่าง: ${result.distance} ม.`;
-              showStatus(text, result.isWithinRadius ? 'success' : 'warning');
+              const title = `บันทึกสำเร็จ (${statusText}) - ห่าง ${result.distance} ม.`;
+              const detail = `พิกัดเครื่อง: ${uLat.toFixed(5)}, ${uLng.toFixed(5)} (ความแม่นยำ ±${accuracy} ม.) <br><a href="https://www.google.com/maps?q=${uLat},${uLng}" target="_blank" class="underline font-semibold mt-1 inline-block">คลิกดูตำแหน่งของคุณบน Google Maps</a>`;
+              
+              showStatus(title, detail, result.isWithinRadius ? 'success' : 'warning');
               saveLocalLog(actionType, result.timestamp, statusText);
             } else {
-              showStatus('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (result.message || ''), 'error');
+              showStatus('เกิดข้อผิดพลาดในการบันทึกข้อมูล', result.message || '', 'error');
             }
           } catch (err) {
-            console.error("Fetch Error:", err);
-            showStatus('ไม่สามารถเชื่อมต่อระบบเซิร์ฟเวอร์ได้ (โปรดตรวจสอบสิทธิ์ Apps Script)', 'error');
+            console.error(err);
+            showStatus('ไม่สามารถเชื่อมต่อระบบเซิร์ฟเวอร์ได้', 'โปรดตรวจสอบการ Deploy ใน Apps Script', 'error');
           }
         },
         (error) => {
-          showStatus('ไม่สามารถเข้าถึงตำแหน่ง GPS ได้ กรุณาอนุญาตการเข้าถึง Location', 'error');
+          let errorMsg = 'ไม่สามารถเข้าถึงตำแหน่ง GPS ได้';
+          if (error.code === 1) errorMsg = 'คุณปฏิเสธการเข้าถึงพิกัด GPS กรุณากดอนุญาตในเบราว์เซอร์';
+          showStatus(errorMsg, '', 'error');
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
 
-    function showStatus(message, type) {
+    function showStatus(message, detail, type) {
       const box = document.getElementById('statusBox');
       const msg = document.getElementById('statusMsg');
+      const det = document.getElementById('statusDetail');
       const icon = document.getElementById('statusIcon');
 
-      box.className = "p-3.5 rounded-xl text-xs flex items-start space-x-2 transition";
-      icon.className = "fa-solid mt-0.5";
+      box.className = "p-3.5 rounded-xl text-xs space-y-1 transition";
+      icon.className = "fa-solid";
 
       if (type === 'loading') {
         box.classList.add('bg-blue-50', 'text-blue-700');
@@ -178,7 +180,8 @@
         icon.classList.add('fa-circle-xmark');
       }
 
-      msg.innerText = message;
+      msg.innerHTML = message;
+      det.innerHTML = detail;
       box.classList.remove('hidden');
     }
 
